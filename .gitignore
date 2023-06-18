@@ -1,0 +1,14 @@
+# MacOS Stuffs
+.DS_Store
+push.sh
+
+# Config
+api/config.js
+
+# Modules
+node_modules
+
+# Parcel
+.parcel-cache
+react/build
+react/dist
