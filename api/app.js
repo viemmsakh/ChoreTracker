@@ -26,11 +26,15 @@ app.use(db.validateSession);
 app.get('/logout', db.userLogout);
 app.get('/logoutall', db.userLogoutAll);
 
-app.post('/chore', db.setChore);
+
 app.get('/mychores', db.getChores);
+app.get('/pendingchores', db.getPendingChores);
 app.get('/familychores', db.getPersonChores);
 app.get('/myfamily', db.getFamily);
+app.get('/myinfo', db.getMyInfo);
+app.get('/perm', db.amIaParent);
 
+app.post('/chore', db.setChore);
 app.post('/togglechore', db.toggleChore);
 
 app.get('/', (req, res) => {

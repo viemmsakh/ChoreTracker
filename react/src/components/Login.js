@@ -31,9 +31,6 @@ export default class Login extends Component {
     if(window.localStorage.getItem('token') !== null) {
       window.localStorage.removeItem('token');
     }
-    if(window.localStorage.getItem('me') !== null) {
-      window.localStorage.removeItem('me');
-    }
   }
 
   async login() {
@@ -62,7 +59,6 @@ export default class Login extends Component {
       if (resp.status === 200) {
         const body = await resp.json();
         window.localStorage.setItem('token', body.token);
-        window.localStorage.setItem('me', JSON.stringify(body.me));
         window.location.href = '/';
       } else {
         state.failed = true;
