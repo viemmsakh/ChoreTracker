@@ -1,0 +1,32 @@
+{
+  "name": "chores",
+  "version": "1.0.0",
+  "description": "",
+  "source": "src/index.html",
+  "browserslist": "> 0.5%, last 2 versions, not dead",
+  "scripts": {
+    "start": "rm -Rf dist && parcel --no-cache",
+    "build": "rm -Rf build && parcel build --dist-dir ./build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.11.16",
+    "@mui/material": "^5.13.4",
+    "@mui/x-date-pickers": "^6.7.0",
+    "ag-grid-community": "^30.0.0",
+    "ag-grid-react": "^30.0.0",
+    "date-fns": "^2.30.0",
+    "prop-types": "^15.8.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.12.1"
+  },
+  "devDependencies": {
+    "parcel": "^2.9.2",
+    "process": "^0.11.10"
+  }
+}
