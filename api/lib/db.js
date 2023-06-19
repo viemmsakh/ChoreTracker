@@ -472,6 +472,40 @@ const toggleChore = async (req, res, next) => {
     res.status(response.status).send(response);
 }
 
+const verifyChore = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 401,
+        message: 'Unauthorized',
+    };
+    try {
+        const { family_permission } = req;
+        if (family_permission && family_permission.toUpperCase() === 'P') {
+            const { uuid, bool } = req.body;
+            let sql;
+            const params = [uuid];
+            if (!bool) {
+                sql = `
+                    UPDATE chores SET chore_verified = CURRENT_TIMESTAMP WHERE chore = $1 RETURNING chore;
+                `
+            } else {
+                sql = `
+                    UPDATE chores SET chore_verified = null WHERE chore = $1 RETURNING chore;
+                `
+            }
+            const { rows } = await client.query(sql, params);
+            response.status = 200;
+            response.message = `${rows.length} records updated`;
+        }
+    } catch (err) {
+        response.status = 500;
+        response.message = err.message ? err.message : 'Unknown Error';
+    } finally {
+        client.release();
+    }
+    res.status(response.status).send(response);
+}
+
 const amIaParent = async (req, res, next) => {
     const response = {
         status: 200,
@@ -500,20 +534,21 @@ const getPendingChores = async (req, res, next) => {
     };
     try {
         const { family_unit, family_permission } = req;
-        if (family_permission && family_permission.toUpperCase() === 'P') {}
-        const sql = `
-            SELECT * FROM chores
-                WHERE chore_verified IS NULL
-                AND chore_completed IS NOT NULL
-                AND chore_member IN (
-                    SELECT uuid FROM USERS
-                        WHERE family_unit = $1
-                );
-        `
-        const params = [family_unit];
-        const { rows } = await client.query(sql, params);
-        response.status = 200;
-        response.message = rows;
+        if (family_permission && family_permission.toUpperCase() === 'P') {
+            const sql = `
+                SELECT * FROM chores
+                    WHERE chore_verified IS NULL
+                    AND chore_completed IS NOT NULL
+                    AND chore_member IN (
+                        SELECT uuid FROM USERS
+                            WHERE family_unit = $1
+                    );
+            `
+            const params = [family_unit];
+            const { rows } = await client.query(sql, params);
+            response.status = 200;
+            response.message = rows;
+        }
     } catch (err) {
         response.status = 500;
         response.message = err.message ? err.message : 'Unknown Error';
@@ -538,4 +573,5 @@ module.exports = {
     getPendingChores,
     getFamily,
     toggleChore,
+    verifyChore,
 };

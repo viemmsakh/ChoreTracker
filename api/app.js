@@ -36,6 +36,7 @@ app.get('/perm', db.amIaParent);
 
 app.post('/chore', db.setChore);
 app.post('/togglechore', db.toggleChore);
+app.post('/verifychore', db.verifyChore);
 
 app.get('/', (req, res) => {
     res.send('Hello World');

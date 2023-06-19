@@ -47,7 +47,13 @@ export default class Header extends Component {
                     alignItems: 'center',
                   }}
                 >
-                  <Typography variant='h6'>{this.props.family}</Typography>
+                  <Typography
+                    variant='h6'
+                    onClick={() => this.context.navigate('')}
+                    sx={{
+                      cursor: 'pointer',
+                    }}
+                  >{this.props.family}</Typography>
                 </Grid>
                 <Grid item xs={12} lg={6}
                   sx={{
@@ -102,8 +108,25 @@ export default class Header extends Component {
           onClose={() => {
             this.toggleMenu();
           }}
+          
         >
           <MenuItem
+            sx={{
+              width: '150px',
+              display: 'flex',
+              justifyContent: 'center',
+              borderBottom: '1px solid #DDD',
+            }}
+            onClick={() => {
+              this.context.navigate('settings');
+            }}
+          >Settings</MenuItem>
+          <MenuItem
+            sx={{
+              width: '150px',
+              display: 'flex',
+              justifyContent: 'center',
+            }}
             onClick={() => {
               this.context.logout();
             }}

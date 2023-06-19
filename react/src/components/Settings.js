@@ -24,7 +24,7 @@ import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 
 import { v4 as uuidv4 } from 'uuid';
 
-export default class Home extends Component {
+export default class Settings extends Component {
   constructor(props) {
     super(props);
     this.state = {

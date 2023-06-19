@@ -41,8 +41,15 @@ export default class App extends Component {
       return window?.matchMedia?.('(prefers-color-scheme:dark)')?.matches ? 'dark' : 'light'
   }
 
+  navigate(path) {
+    if (path) {
+      window.location.href = `/#/${path}`;
+    } else {
+      window.location.href = `/#/`;
+    }
+  }
+
   async logout() {
-    window.localStorage.removeItem('me');
     window.localStorage.removeItem('token');
     
     const url = `${this.state.origin}/logout`;
@@ -62,6 +69,7 @@ export default class App extends Component {
     const context = {
       origin: this.state.origin,
       logout: () => { this.logout() },
+      navigate: (path) => { this.navigate(path) },
       theme: this.state.theme,
     };
     return (
@@ -71,6 +79,7 @@ export default class App extends Component {
             <UserProvider value={context}>
                 <Routes>
                     <Route path='/' element={<Home />} />
+                    <Route path='/settings' element={<Home />} />
                     <Route path='/login' element={<Login />} />
                 </Routes>
             </UserProvider>
