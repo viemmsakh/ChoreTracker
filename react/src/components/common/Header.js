@@ -18,6 +18,7 @@ export default class Header extends Component {
   static propTypes = {
     display: PropTypes.string,
     family: PropTypes.string,
+    header: PropTypes.string,
   };
   static contextType = UserConsumer;
 
@@ -53,7 +54,9 @@ export default class Header extends Component {
                     sx={{
                       cursor: 'pointer',
                     }}
-                  >{this.props.family}</Typography>
+                  >
+                    {this.props.family}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} lg={6}
                   sx={{
