@@ -22,7 +22,7 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import PersonOverview from './PersonOverview';
 import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 
-import { v4 as uuidv4 } from 'uuid';
+// import { v4 as uuidv4 } from 'uuid';
 
 export default class Home extends Component {
   constructor(props) {
@@ -45,6 +45,7 @@ export default class Home extends Component {
       parent: false,
       pendingChores: [],
       sort: 'd',
+      disabled: false,
     };
 
     this.defaultColDef = {
@@ -64,18 +65,20 @@ export default class Home extends Component {
     this.expandChore = this.expandChore.bind(this);
     this.expandPending = this.expandPending.bind(this);
     this.expandPersonChores = this.expandPersonChores.bind(this);
-    this.getMyChores = this.getMyChores.bind(this);
-    this.getMyFamily = this.getMyFamily.bind(this);
-    this.getMyInfo = this.getMyInfo.bind(this);
+    // this.getMyChores = this.getMyChores.bind(this);
+    // this.getMyFamily = this.getMyFamily.bind(this);
+    // this.getMyInfo = this.getMyInfo.bind(this);
     this.getPendingChores = this.getPendingChores.bind(this);
     this.handleSortChange = this.handleSortChange.bind(this);
     this.load = this.load.bind(this);
     this.markVerified = this.markVerified.bind(this);
-    this.permCheck = this.permCheck.bind(this);
+    // this.permCheck = this.permCheck.bind(this);
     this.saveChore = this.saveChore.bind(this);
     this.toggleChore = this.toggleChore.bind(this);
     this.toggleModal = this.toggleModal.bind(this);
-    this.updateErrors = this.updateErrors.bind(this);
+    this.familyCheck = this.familyCheck.bind(this);
+    this.generateFamily = this.generateFamily.bind(this);
+    // this.updateErrors = this.updateErrors.bind(this);
   }
   static contextType = UserContext;
 
@@ -109,22 +112,22 @@ export default class Home extends Component {
     this.setState({ expanded_person });
   }
 
-  async getMyChores() {
+  async familyCheck() {
     return new Promise(async (resolve, reject) => {
-      const url = `${this.context.origin}/mychores`;
+      const url = `${this.context.origin}/familycheck`;
       const options = {
         method: 'GET',
         mode: 'cors',
         cache: 'no-cache',
         headers: {
-          'Authorization': this.state.jwt,
+          'Authorization': this.context.jwt,
         }
       };
       const resp = await fetch(url, options);
       if (resp.status === 200) {
         const data = await resp.json();
         if (data.status === 500) {
-          await this.updateErrors(data.message);
+          await this.context.updateErrors(data.message);
         }
         resolve(data.message);
       } else {
@@ -133,54 +136,55 @@ export default class Home extends Component {
     });
   }
 
-  async getMyFamily() {
+  async generateFamily() {
     return new Promise(async (resolve, reject) => {
-      const url = `${this.context.origin}/myfamily`;
+      const url = `${this.context.origin}/generatefamily`;
       const options = {
-        method: 'GET',
+        method: 'POST',
         mode: 'cors',
         cache: 'no-cache',
         headers: {
-          'Authorization': this.state.jwt,
-        }
+          'Authorization': this.context.jwt,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          family_name: 'TEST FAMILY',
+        }),
       };
+      console.log({options});
       const resp = await fetch(url, options);
+      console.log({resp});
       if (resp.status === 200) {
         const data = await resp.json();
+        console.log({data});
         if (data.status === 500) {
-          await this.updateErrors(data.message);
+          await this.context.updateErrors(data.message);
         }
-        const sorted = data.message.sort((a, b) => {
-          if (a.name.toLowerCase() > b.name.toLowerCase()) return 1;
-          if (a.name.toLowerCase() < b.name.toLowerCase()) return -1;
-          return 0;
-        })
-        resolve(sorted);
+        resolve(data.message);
       } else {
         this.context.logout();
       }
     });
   }
 
-  async getMyInfo() {
+  async getMyChores() {
     return new Promise(async (resolve, reject) => {
-      const url = `${this.context.origin}/myinfo`;
+      const url = `${this.context.origin}/mychores`;
       const options = {
         method: 'GET',
         mode: 'cors',
         cache: 'no-cache',
         headers: {
-          'Authorization': this.state.jwt,
+          'Authorization': this.context.jwt,
         }
       };
       const resp = await fetch(url, options);
       if (resp.status === 200) {
         const data = await resp.json();
         if (data.status === 500) {
-          await this.updateErrors(data.message);
+          await this.context.updateErrors(data.message);
         }
-        console.log({data});
-        resolve({ name: data.message.name, family_name: data.message.family_name });
+        resolve(data.message);
       } else {
         this.context.logout();
       }
@@ -195,14 +199,14 @@ export default class Home extends Component {
         mode: 'cors',
         cache: 'no-cache',
         headers: {
-          'Authorization': this.state.jwt,
+          'Authorization': this.context.jwt,
         }
       };
       const resp = await fetch(url, options);
       if (resp.status === 200) {
         const data = await resp.json();
         if (data.status === 500) {
-          await this.updateErrors(data.message);
+          await this.context.updateErrors(data.message);
         }
         resolve(data.message);
       } else {
@@ -218,48 +222,53 @@ export default class Home extends Component {
   }
 
   async load() {
-    const { expanded_chore, expanded_person, expanded_pending } = this.state;
-    let parent = await this.permCheck();
-    parent = parent === 'yes' ? true : false;
-    let family = [];
-    let pendingChores = [];
-    if (parent) {
-      family = await this.getMyFamily();
-      for (const person of family) {
-        const id = person.uuid;
-        if (id in expanded_person) {
-          expanded_person[id] = expanded_person[id];
-        } else {
-          expanded_person[id] = false;
+    const hasFamily = await this.familyCheck();
+    if (!hasFamily) {
+      this.setState({ hasFamily, loaded: true });
+    } else {
+      const { expanded_chore, expanded_person, expanded_pending } = this.state;
+      let parent = await this.context.permCheck();
+      parent = parent === 'yes' ? true : false;
+      let family = [];
+      let pendingChores = [];
+      if (parent) {
+        family = await this.context.getMyFamily();
+        for (const person of family) {
+          const id = person.uuid;
+          if (id in expanded_person) {
+            expanded_person[id] = expanded_person[id];
+          } else {
+            expanded_person[id] = false;
+          }
+        }
+        pendingChores = await this.getPendingChores();
+        pendingChores = pendingChores ? pendingChores.sort((a, b) => {
+          if (a.chore_name > b.chore_name) return 1;
+          if (a.chore_name < b.chore_name) return -1;
+          return 0;
+        })
+        : [];
+        for (const chore of pendingChores) {
+          const id = chore.chore;
+          if (id in expanded_pending) {
+            expanded_pending[id] = expanded_pending[id];
+          } else {
+            expanded_pending[id] = false;
+          }
         }
       }
-      pendingChores = await this.getPendingChores();
-      pendingChores = pendingChores ? pendingChores.sort((a, b) => {
-        if (a.chore_name > b.chore_name) return 1;
-        if (a.chore_name < b.chore_name) return -1;
-        return 0;
-      })
-      : [];
-      for (const chore of pendingChores) {
+      const chores = this.sort(await this.getMyChores());
+      for (const chore of chores) {
         const id = chore.chore;
-        if (id in expanded_pending) {
-          expanded_pending[id] = expanded_pending[id];
+        if (id in expanded_chore) {
+          expanded_chore[id] = expanded_chore[id];
         } else {
-          expanded_pending[id] = false;
+          expanded_chore[id] = false;
         }
       }
+      const { name, family_name } = await this.context.getMyInfo();
+      this.setState({ hasFamily, parent, family, pendingChores, expanded_pending, name, family_name, chores, loaded: true, expanded_chore, expanded_person });
     }
-    const chores = this.sort(await this.getMyChores());
-    for (const chore of chores) {
-      const id = chore.chore;
-      if (id in expanded_chore) {
-        expanded_chore[id] = expanded_chore[id];
-      } else {
-        expanded_chore[id] = false;
-      }
-    }
-    const { name, family_name } = await this.getMyInfo();
-    this.setState({ parent, family, pendingChores, expanded_pending, name, family_name, chores, loaded: true, expanded_chore, expanded_person });
   }
 
   async markVerified(uuid) {
@@ -270,7 +279,7 @@ export default class Home extends Component {
         mode: 'cors',
         cache: 'no-cache',
         headers: {
-          'Authorization': this.state.jwt,
+          'Authorization': this.context.jwt,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -281,38 +290,13 @@ export default class Home extends Component {
       if (resp.status === 200) {
         const data = await resp.json();
         if (data.status === 500) {
-          await this.updateErrors(data.message);
+          await this.context.updateErrors(data.message);
         }
         await this.load();
       } else {
         this.context.logout();
       }
     }
-  }
-
-  async permCheck() {
-    return new Promise(async (resolve, reject) => {
-      const url = `${this.context.origin}/perm`;
-      const options = {
-        method: 'GET',
-        mode: 'cors',
-        cache: 'no-cache',
-        headers: {
-          'Authorization': this.state.jwt,
-        }
-      };
-      const resp = await fetch(url, options);
-      console.log(resp);
-      if (resp.status === 200) {
-        const data = await resp.json();
-        if (data.status === 500) {
-          await this.updateErrors(data.message);
-        }
-        resolve(data.message);
-      } else {
-        this.context.logout();
-      }
-    });
   }
 
   async saveChore() {
@@ -334,7 +318,7 @@ export default class Home extends Component {
           mode: 'cors',
           cache: 'no-cache',
           headers: {
-            'Authorization': this.state.jwt,
+            'Authorization': this.context.jwt,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -349,7 +333,7 @@ export default class Home extends Component {
         if (resp.status === 200) {
           const data = await resp.json();
           if (data.status === 500) {
-            await this.updateErrors(data.message);
+            await this.context.updateErrors(data.message);
           }
           resolve(true);
           return;
@@ -397,7 +381,7 @@ export default class Home extends Component {
         mode: 'cors',
         cache: 'no-cache',
         headers: {
-          'Authorization': this.state.jwt,
+          'Authorization': this.context.jwt,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -409,7 +393,7 @@ export default class Home extends Component {
       if (resp.status === 200) {
         const data = await resp.json();
         if (data.status === 500) {
-          await this.updateErrors(data.message);
+          await this.context.updateErrors(data.message);
         }
         await this.load();
       } else {
@@ -426,35 +410,22 @@ export default class Home extends Component {
     }
   }
 
-  updateErrors(err) {
-    return new Promise((resolve, reject) => {
-      const { errors } = this.state;
-      errors.push({
-        msg: err,
-        id: uuidv4(),
-      });
-      this.setState({ errors }, () => {
-        resolve(true);
-      })
-    })
-  }
-
   render() {
-    return (
-      <>
-        { this.state.loaded && (
-          <>
+    let body = 'Something...';
+    if (this.state.loaded && this.state.hasFamily) {
+      body = (
+        <>
             <Header
               family={this.state.family_name}
               display={this.state.name}
             />
-            <Container maxWidth='large' sx={{ mt: 2 }}>
+            <Container maxWidth='lg' sx={{ mt: 2 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} lg={3}>
                   { this.state.parent && (
                     <Paper
                       sx={{
-                        padding: '12px',
+                        p: 1,
                         display: 'flex',
                         flexDirection: 'column',
                       }}
@@ -554,7 +525,7 @@ export default class Home extends Component {
                     <Grid item xs={12}>
                       <Paper
                         sx={{
-                          padding: '12px',
+                          p: 1,
                           display: 'flex',
                           flexDirection: 'column',
                         }}
@@ -712,7 +683,7 @@ export default class Home extends Component {
                                         border: '1px solid #DDD',
                                       }}
                                     />
-                                    
+
                                     { chore.chore_deadline ? format(new Date(chore.chore_deadline), 'yyyy-MM-dd hh:mm aa') : 'No Deadline' }
                                     </Box>
                                   </Grid>
@@ -769,7 +740,7 @@ export default class Home extends Component {
                       <Grid item xs={12}>
                         <Paper
                           sx={{
-                            padding: '12px',
+                            p: 1,
                             display: 'flex',
                             flexDirection: 'column',
                           }}
@@ -907,7 +878,7 @@ export default class Home extends Component {
                                           border: '1px solid #DDD',
                                         }}
                                       />
-                                      
+
                                       { chore.chore_deadline ? format(new Date(chore.chore_deadline), 'yyyy-MM-dd hh:mm aa') : 'No Deadline' }
                                       </Box>
                                     </Grid>
@@ -967,7 +938,50 @@ export default class Home extends Component {
               </Grid>
             </Container>
           </>
-        )}
+      );
+    } else if (this.state.loaded && !this.state.hasFamily) { // No Family
+      body = (
+        <>
+          <Container maxWidth='sm' sx={{ mt: 2 }}>
+            <Paper
+              sx={{
+                p: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+              }}>
+              <Typography
+                variant='h6'
+                sx={{
+                  borderBottom: '1px solid #DDD',
+                }}
+                align='center'
+              >You don't have a family yet... How sad?</Typography>
+              <Button
+                variant='contained'
+                fullWidth
+                color='primary'
+                disabled={this.state.disabled}
+                onClick={() => {
+                  this.setState({ disabled: true }, () => {
+                    this.generateFamily();
+                  })
+                }}
+              >Create Family</Button>
+              <Button
+                variant='contained'
+                fullWidth
+                color='success'
+                disabled={this.state.disabled}
+              >Join Family</Button>
+            </Paper>
+          </Container>
+        </>
+      );
+    }
+    return (
+      <>
+        { body }
         { this.state.modal_open && (
           <Modal
             open={this.state.modal_open}

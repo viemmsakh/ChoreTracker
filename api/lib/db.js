@@ -25,7 +25,7 @@ const userLogin = async (req, res) => {
                     LIMIT 1;
             `;
             let params = [ username ];
-            
+
                 let rows = await client.query(sql, params);
                 if (rows.rows.length) {
                     const { hash, uuid: user_id } = rows.rows[0];
@@ -143,11 +143,12 @@ const userRegister = async (req, res) => {
             SELECT username FROM users
                 WHERE username = $1;
         `;
+        let params = [username];
         let rows = await client.query(sql, params);
         if (rows.rows.length) {
             response.message = 'Username already in use'
         } else {
-            let params = [username];
+            await client.query('BEGIN');
             if (ip.substr(0, 7) === "::ffff:") {
                 ip = ip.substr(7);
             }
@@ -157,18 +158,45 @@ const userRegister = async (req, res) => {
                     VALUES ($1, $2)
                     RETURNING uuid;
             `;
+            params = [hash, ip];
             rows = await client.query(sql, params);
-            if (rows.rows.length) {
-                sql = `
-                    INSERT INTO users (uuid, username, name)
-                        VALUES ($1, $2, $3);
-                `;
-                params = [rows[0].uuid, username, name];
-                rows = await client.query(sql, params);
-                console.log(rows);
-                response.status = 200;
-                response.message = 'Registered';
-            }
+            sql = `
+                INSERT INTO users (uuid, username, name)
+                    VALUES ($1, $2, $3);
+            `;
+            params = [rows.rows[0].uuid, username, name];
+            rows = await client.query(sql, params);
+            response.status = 200;
+            response.message = 'Registered';
+        }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        response.status = 500;
+        response.message = err.message ? err.message : 'Unknown Error';
+    } finally {
+        await client.query('COMMIT');
+        client.release();
+    }
+    res.status(response.status).send(response);
+    return;
+};
+
+const checkUsername = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 200,
+    };
+    const {
+        username,
+    } = req.body;
+    try {
+        const sql = `
+            SELECT count(*) FROM users WHERE username = $1;
+        `;
+        const params = [username];
+        const { rows } = await client.query(sql, params);
+        if (rows && parseInt(rows[0].count) > 0) {
+            response.message = 'Username not available';
         }
     } catch (err) {
         response.status = 500;
@@ -178,7 +206,7 @@ const userRegister = async (req, res) => {
     }
     res.status(response.status).send(response);
     return;
-};
+}
 
 const validateSession = async (req, res, next) => {
     const client = await pool.connect();
@@ -191,10 +219,11 @@ const validateSession = async (req, res, next) => {
             const token = req.headers.authorization;
             const decoded = jwt.verify(token, config.jwt.secret, { algorithms: 'HS256' });
             const { session_uuid } = decoded;
+
             const sql = `
                 SELECT u.username, u.name, u.uuid, u.family_unit, u.family_permission, f.family_name FROM users u
                     JOIN sessions s ON (s.requested_by = u.uuid)
-                    JOIN family f ON (f.unit = u.family_unit)
+                    LEFT JOIN family f ON (f.unit = u.family_unit)
                     WHERE s.uuid = $1
                     LIMIT 1;
             `;
@@ -303,7 +332,7 @@ const setChore = async (req, res, next) => {
                 chore_name,
                 chore_description,
                 deadline,
-                user_id
+                uuid
             ];
         }
         const { rows } = await client.query(sql, params);
@@ -411,7 +440,7 @@ const getFamily = async (req, res, next) => {
                     FROM users u
                     WHERE u.family_unit = $1;
                 `;
-            params = [family_unit];       
+            params = [family_unit];
         } else {
             sql = `
                 SELECT u.uuid, u.username, u.name, u.family_permission,
@@ -424,7 +453,7 @@ const getFamily = async (req, res, next) => {
                                 GROUP BY chore_member
                         ), 0) as incomplete
                     FROM users u
-                    WHERE u.uuid = $1;          
+                    WHERE u.uuid = $1;
             `;
             params = [uuid];
         }
@@ -439,6 +468,70 @@ const getFamily = async (req, res, next) => {
         client.release();
     }
     res.status(response.status).send(response);
+}
+
+const generateFamily = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 403,
+        message: 'Cannot create family',
+    };
+
+    const { family_name } = req.body;
+    const { uuid } = req;
+    const unit = uuidv4();
+    let sql;
+    let params;
+    try {
+        await client.query('BEGIN');
+        sql = `
+            INSERT INTO family (unit, family_name)
+                VALUES ($1, $2);
+        `;
+        params = [unit, family_name];
+        let rows = await client.query(sql, params);
+        sql = `
+            UPDATE users SET family_unit = $1, family_permission = 'P' WHERE uuid = $2;
+        `;
+        params = [unit, uuid];
+        rows = await client.query(sql, params);
+        response.status = 200;
+        response.message = rows;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        response.status = 500;
+        response.message = err.message ? err.message : 'Unknown Error';
+    } finally {
+        await client.query('COMMIT');
+        client.release();
+    }
+    res.status(response.status).send(response);
+    return;
+}
+
+const familyCheck = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 403,
+        message: [],
+    };
+    const { uuid, username } = req;
+    try {
+        const sql = `
+            SELECT family_unit FROM users WHERE uuid = $1;
+        `;
+        const params = [uuid];
+        const { rows } = await client.query(sql, params);
+        response.status = 200;
+        response.message = rows[0].family_unit ? true : false;
+    } catch (err) {
+        response.status = 500;
+        response.message = err.message ? err.message : 'Unknown Error';
+    } finally {
+        client.release();
+    }
+    res.status(response.status).send(response);
+    return;
 }
 
 const toggleChore = async (req, res, next) => {
@@ -521,8 +614,8 @@ const getMyInfo = async (req, res, next) => {
         status: 200,
         message: 'Unauthorized',
     };
-    const { name, family_name } = req;
-    response.message = { name, family_name };
+    const { name, family_name, uuid } = req;
+    response.message = { name, family_name, uuid };
     res.status(response.status).send(response);
 };
 
@@ -558,20 +651,83 @@ const getPendingChores = async (req, res, next) => {
     res.status(response.status).send(response);
 };
 
+const getAdoptionCodes = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 401,
+        message: 'Unauthorized',
+    };
+    try {
+        const { family_unit, family_permission } = req;
+        if (family_permission && family_permission.toUpperCase() === 'P') {
+            const sql = `
+                SELECT * FROM adopt
+                    WHERE family_unit = $1;
+            `
+            const params = [family_unit];
+            const { rows } = await client.query(sql, params);
+            response.status = 200;
+            response.message = rows;
+        }
+    } catch (err) {
+        response.status = 500;
+        response.message = err.message ? err.message : 'Unknown Error';
+    } finally {
+        client.release();
+    }
+    res.status(response.status).send(response);
+};
+
+const generateAdoptionCodes = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 401,
+        message: 'Unauthorized',
+    };
+    try {
+        await client.query('BEGIN');
+        const { family_unit, family_permission } = req;
+        const { intended, permission } = req.body;
+        if (family_permission && family_permission.toUpperCase() === 'P') {
+            const sql = `
+                INSERT INTO adopt ( intended, permission, family_unit )
+                    VALUES ($1, $2, $3);
+            `;
+            const params = [intended, permission ? 'P' : '', family_unit];
+            const { rows } = await client.query(sql, params);
+            response.status = 200;
+            response.message = rows;
+        }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        response.status = 500;
+        response.message = err.message ? err.message : 'Unknown Error';
+    } finally {
+        await client.query('COMMIT');
+        client.release();
+    }
+    res.status(response.status).send(response);
+};
+
 module.exports = {
     test,
     amIaParent,
+    checkUsername,
     userLogin,
     userLogout,
     userLogoutAll,
     userRegister,
     validateSession,
+    getAdoptionCodes,
+    generateAdoptionCodes,
     getChores,
     getMyInfo,
     setChore,
     getPersonChores,
     getPendingChores,
     getFamily,
+    familyCheck,
+    generateFamily,
     toggleChore,
     verifyChore,
 };

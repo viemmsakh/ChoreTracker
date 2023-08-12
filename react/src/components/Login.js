@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Button, Container, Paper, TextField, Typography } from '@mui/material';
+import { Box, Button, Container, Link, Paper, TextField, Typography } from '@mui/material';
 
 import UserContext from '../lib/Context';
 
@@ -104,6 +104,7 @@ export default class Login extends Component {
             <TextField
                 label="Username"
                 variant="outlined"
+                size='small'
                 color={this.state.username.error ? 'error' : 'primary'}
                 error={this.state.username.error}
                 fullWidth
@@ -120,6 +121,7 @@ export default class Login extends Component {
               label="Password"
               type='password'
               variant="outlined"
+              size='small'
               color={this.state.password.error ? 'error' : 'primary'}
               error={this.state.password.error}
               value={this.state.password.value}
@@ -146,6 +148,16 @@ export default class Login extends Component {
             >
               Login
             </Button>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                fontSize: '1rem',
+                width: '100%',
+              }}
+            >
+              <Link href='/#/register'>Register</Link>
+            </Box>
           </Paper>
         </Container>
       </>
