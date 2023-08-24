@@ -5,6 +5,7 @@ import Header from './common/Header';
 import TabPanel from './common/TabPanel';
 import TabFamily from './TabFamily';
 import TabAdoption from './TabAdoption';
+import TabSettings from './TabSettings';
 
 export default class Settings extends Component {
   constructor(props) {
@@ -83,7 +84,7 @@ export default class Settings extends Component {
                 }}
               >
                 <TabPanel value={this.state.tab} index={0}>
-                  Password
+                  <TabSettings />
                 </TabPanel>
                 { enableAdoption && (
                   <TabPanel value={this.state.tab} index={1}>

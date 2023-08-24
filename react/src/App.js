@@ -39,6 +39,10 @@ export default class App extends Component {
     this.getMyFamily = this.getMyFamily.bind(this);
     this.permCheck = this.permCheck.bind(this);
     this.updateErrors = this.updateErrors.bind(this);
+    this.changeDisplayName = this.changeDisplayName.bind(this);
+    this.changePassword = this.changePassword.bind(this);
+    this.orphan = this.orphan.bind(this);
+    this.orphanFamily = this.orphanFamily.bind(this);
   }
   componentDidMount() {
     this.setState({ theme: this.getPreferredScheme() }); // Set Theme Initially
@@ -46,6 +50,104 @@ export default class App extends Component {
       this.setState({ theme: this.getPreferredScheme() });
     });
   };
+
+  async changeDisplayName(uuid = null, name = null) {
+    return new Promise(async (resolve, reject) => {
+      const url = `${this.state.origin}/changedisplayname`;
+      const options = {
+        method: 'POST',
+        mode: 'cors',
+        cache: 'no-cache',
+        headers: {
+          'Authorization': this.state.jwt,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          uuid,
+          new_display_name: name,
+        }),
+      };
+      const resp = await fetch(url, options);
+      if (resp.status === 200) {
+        resolve('ok');
+      } else {
+        resolve('error');
+      }
+    });
+  }
+
+  async changePassword(uuid = null, password = null) {
+    return new Promise(async (resolve, reject) => {
+      const url = `${this.state.origin}/changepassword`;
+      const options = {
+        method: 'POST',
+        mode: 'cors',
+        cache: 'no-cache',
+        headers: {
+          'Authorization': this.state.jwt,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          uuid,
+          password,
+        }),
+      };
+      const resp = await fetch(url, options);
+      if (resp.status === 200) {
+        resolve('ok');
+      } else {
+        resolve('error');
+      }
+    });
+  }
+
+  async orphan(uuid = null) {
+    return new Promise(async (resolve, reject) => {
+      const url = `${this.state.origin}/orphan`;
+      const options = {
+        method: 'POST',
+        mode: 'cors',
+        cache: 'no-cache',
+        headers: {
+          'Authorization': this.state.jwt,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          uuid,
+        }),
+      };
+      const resp = await fetch(url, options);
+      if (resp.status === 200) {
+        resolve('ok');
+      } else {
+        resolve('error');
+      }
+    });
+  }
+
+  async orphanFamily(uuid = null) {
+    return new Promise(async (resolve, reject) => {
+      const url = `${this.state.origin}/orphanfamily`;
+      const options = {
+        method: 'POST',
+        mode: 'cors',
+        cache: 'no-cache',
+        headers: {
+          'Authorization': this.state.jwt,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          uuid,
+        }),
+      };
+      const resp = await fetch(url, options);
+      if (resp.status === 200) {
+        resolve('ok');
+      } else {
+        resolve('error');
+      }
+    });
+  }
 
   getPreferredScheme() {
       return window?.matchMedia?.('(prefers-color-scheme:dark)')?.matches ? 'dark' : 'light'
@@ -68,7 +170,7 @@ export default class App extends Component {
         if (data.status === 500) {
           await this.updateErrors(data?.message);
         }
-        resolve({ name: data?.message?.name, family_name: data?.message?.family_name, uuid: data?.message?.uuid });
+        resolve({ name: data?.message?.name, family_name: data?.message?.family_name, uuid: data?.message?.uuid, family_permission: data?.message?.family_permission });
       } else {
         this.logout();
       }
@@ -168,6 +270,10 @@ export default class App extends Component {
   render() {
     const context = {
       origin: this.state.origin,
+      changeDisplayName: this.changeDisplayName,
+      changePassword: this.changePassword,
+      orphan: this.orphan,
+      orphanFamily: this.orphanFamily,
       logout: () => { this.logout() },
       navigate: (path) => { this.navigate(path) },
       theme: this.state.theme,

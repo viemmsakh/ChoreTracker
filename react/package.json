@@ -6,7 +6,8 @@
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "scripts": {
     "start": "rm -Rf dist && parcel --no-cache",
-    "build": "rm -Rf build && parcel build --dist-dir ./build"
+    "build": "rm -Rf build && parcel build --dist-dir ./build",
+    "dev": "concurrently --kill-others \"npm run start\" \"node ../api/app.js \""
   },
   "keywords": [],
   "author": "",
@@ -27,6 +28,7 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "concurrently": "^8.2.1",
     "parcel": "^2.9.2",
     "process": "^0.11.10"
   }
