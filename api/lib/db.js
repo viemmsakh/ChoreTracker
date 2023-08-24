@@ -181,6 +181,160 @@ const userRegister = async (req, res) => {
     return;
 };
 
+const changeDisplayName = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 403,
+        message: 'Cannot change display name',
+    };
+
+    const { uuid: user_uuid, new_display_name } = req.body;
+    const { uuid, family_permission } = req;
+    if (user_uuid && new_display_name) {
+        if (user_uuid === uuid || (family_permission && family_permission === "P")) {
+            let sql;
+            let params;
+            try {
+                await client.query('BEGIN');
+                sql = `
+                    UPDATE users SET name = $1 WHERE uuid = $2;
+                `;
+                params = [new_display_name, user_uuid];
+                let rows = await client.query(sql, params);
+                response.status = 200;
+                response.message = rows;
+            } catch (err) {
+                await client.query('ROLLBACK');
+                response.status = 500;
+                response.message = err.message ? err.message : 'Unknown Error';
+            } finally {
+                await client.query('COMMIT');
+                client.release();
+            }
+        }
+    }
+    res.status(response.status).send(response);
+    return;
+}
+
+const changePassword = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 403,
+        message: 'Cannot change password',
+    };
+
+    const { uuid: user_uuid, password } = req.body;
+    const { uuid, family_permission } = req;
+    if (user_uuid && password) {
+        if (user_uuid === uuid || (family_permission && family_permission === "P")) {
+            let sql;
+            let params;
+            try {
+                await client.query('BEGIN');
+                const hash = await bcrypt.hash(password, saltRounds);
+                sql = `
+                    UPDATE auth SET hash = $1 WHERE uuid = $2;
+                `;
+                params = [hash, user_uuid];
+                let rows = await client.query(sql, params);
+                response.status = 200;
+                response.message = rows;
+            } catch (err) {
+                await client.query('ROLLBACK');
+                response.status = 500;
+                response.message = err.message ? err.message : 'Unknown Error';
+            } finally {
+                await client.query('COMMIT');
+                client.release();
+            }
+        }
+    }
+    res.status(response.status).send(response);
+    return;
+}
+
+const orphan = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 403,
+        message: 'Cannot orphan family member',
+    };
+
+    const { uuid: user_uuid } = req.body;
+    const { uuid, family_permission } = req;
+    if (user_uuid) {
+        if (user_uuid === uuid || (family_permission && family_permission === "P")) {
+            let sql;
+            let params;
+            try {
+                await client.query('BEGIN');
+                sql = `
+                    UPDATE users SET family_unit = null, family_permission = null WHERE uuid = $1;
+                `;
+                params = [user_uuid];
+                let rows = await client.query(sql, params);
+                response.status = 200;
+                response.message = rows;
+            } catch (err) {
+                await client.query('ROLLBACK');
+                response.status = 500;
+                response.message = err.message ? err.message : 'Unknown Error';
+            } finally {
+                await client.query('COMMIT');
+                client.release();
+            }
+        }
+    }
+    res.status(response.status).send(response);
+    return;
+}
+
+const orphanFamily = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 403,
+        message: 'Cannot orphan family',
+    };
+
+    const { uuid: user_uuid } = req.body;
+    const { uuid, family_permission } = req;
+    if (user_uuid) {
+        if (family_permission && family_permission === "P") {
+            // Get all family members and orphan them
+            let sql;
+            let params;
+            let rows;
+            try {
+                await client.query('BEGIN');
+                sql = `SELECT family_unit FROM users WHERE uuid = $1;`;
+                params = [user_uuid];
+                rows = await client.query(sql, params);
+                if (rows.rows.length) {
+                    const { family_unit } = rows.rows[0];
+                    console.log('FAMILY UNIT', family_unit);
+                    sql = `DELETE FROM family WHERE unit = $1;`;
+                    params = [family_unit];
+                    rows = await client.query(sql, params);
+                    sql = `UPDATE users SET family_unit = null, family_permission = null WHERE family_unit = $1;`;
+                    rows = await client.query(sql, params);
+                    response.status = 200;
+                    response.message = 'Family orphaned';
+                }
+            } catch (err) {
+                await client.query('ROLLBACK');
+                response.status = 500;
+                response.message = err.message ? err.message : 'Unknown Error';
+            } finally {
+                await client.query('COMMIT');
+                client.release();
+            }
+        }
+    }
+    res.status(response.status).send(response);
+    return;
+}
+
 const checkUsername = async (req, res, next) => {
     const client = await pool.connect();
     const response = {
@@ -241,29 +395,6 @@ const validateSession = async (req, res, next) => {
                 return;
             }
         }
-    } catch (err) {
-        response.status = 500;
-        response.message = err.message ? err.message : 'Unknown Error';
-    } finally {
-        client.release();
-    }
-    res.status(response.status).send(response);
-    return;
-};
-
-const test = async (req, res, next) => {
-    const client = await pool.connect();
-    const response = {
-        status: 403,
-        message: [],
-    };
-    try {
-        const sql = `
-            SELECT * FROM family LIMIT 1;
-        `;
-        const { rows } = await client.query(sql);
-        response.status = 200;
-        response.message = rows;
     } catch (err) {
         response.status = 500;
         response.message = err.message ? err.message : 'Unknown Error';
@@ -470,6 +601,43 @@ const getFamily = async (req, res, next) => {
     res.status(response.status).send(response);
 }
 
+const joinFamily = async (req, res, next) => {
+    const client = await pool.connect();
+    const response = {
+        status: 403,
+        message: 'Cannot join family',
+    };
+    const { adoption_code } = req.body;
+    const { uuid } = req;
+    let sql;
+    let params;
+    try {
+        if (adoption_code) {
+            sql = 'SELECT * from adopt WHERE adoption_code = $1;';
+            params = [adoption_code];
+            let { rows } = await client.query(sql, params);
+            const { family_unit, permission } = rows[0];
+            sql = 'UPDATE users SET family_unit = $1, family_permission = $2 WHERE uuid = $3;';
+            params = [family_unit, permission, uuid];
+            rows = await client.query(sql, params);
+            sql = 'DELETE FROM adopt WHERE adoption_code = $1;';
+            params = [adoption_code];
+            rows = await client.query(sql, params);
+            response.status = 200;
+            response.message = 'Family joined';
+        }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        response.status = 500;
+        response.message = err.message ? err.message : 'Unknown Error';
+    } finally {
+        await client.query('COMMIT');
+        client.release();
+    }
+    res.status(response.status).send(response);
+    return;
+}
+
 const generateFamily = async (req, res, next) => {
     const client = await pool.connect();
     const response = {
@@ -483,20 +651,22 @@ const generateFamily = async (req, res, next) => {
     let sql;
     let params;
     try {
-        await client.query('BEGIN');
-        sql = `
-            INSERT INTO family (unit, family_name)
-                VALUES ($1, $2);
-        `;
-        params = [unit, family_name];
-        let rows = await client.query(sql, params);
-        sql = `
-            UPDATE users SET family_unit = $1, family_permission = 'P' WHERE uuid = $2;
-        `;
-        params = [unit, uuid];
-        rows = await client.query(sql, params);
-        response.status = 200;
-        response.message = rows;
+        if (family_name) {
+            await client.query('BEGIN');
+            sql = `
+                INSERT INTO family (unit, family_name)
+                    VALUES ($1, $2);
+            `;
+            params = [unit, family_name];
+            let rows = await client.query(sql, params);
+            sql = `
+                UPDATE users SET family_unit = $1, family_permission = 'P' WHERE uuid = $2;
+            `;
+            params = [unit, uuid];
+            rows = await client.query(sql, params);
+            response.status = 200;
+            response.message = rows;
+        }
     } catch (err) {
         await client.query('ROLLBACK');
         response.status = 500;
@@ -614,8 +784,8 @@ const getMyInfo = async (req, res, next) => {
         status: 200,
         message: 'Unauthorized',
     };
-    const { name, family_name, uuid } = req;
-    response.message = { name, family_name, uuid };
+    const { name, family_name, uuid, family_permission } = req;
+    response.message = { name, family_name, uuid, family_permission };
     res.status(response.status).send(response);
 };
 
@@ -710,9 +880,12 @@ const generateAdoptionCodes = async (req, res, next) => {
 };
 
 module.exports = {
-    test,
     amIaParent,
     checkUsername,
+    changeDisplayName,
+    changePassword,
+    orphan,
+    orphanFamily,
     userLogin,
     userLogout,
     userLogoutAll,
@@ -728,6 +901,7 @@ module.exports = {
     getFamily,
     familyCheck,
     generateFamily,
+    joinFamily,
     toggleChore,
     verifyChore,
 };

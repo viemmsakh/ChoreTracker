@@ -21,8 +21,6 @@ app.post('/register', db.userRegister);
 
 app.post('/checkusername', db.checkUsername);
 
-app.get('/test', db.test);
-
 app.use(db.validateSession);
 
 app.get('/logout', db.userLogout);
@@ -38,8 +36,13 @@ app.get('/familycheck', db.familyCheck);
 app.get('/myinfo', db.getMyInfo);
 app.get('/perm', db.amIaParent);
 
-app.post('/generateadoptioncode', db.generateAdoptionCodes)
-;app.post('/generatefamily', db.generateFamily);
+app.post('/changedisplayname', db.changeDisplayName);
+app.post('/changepassword', db.changePassword);
+app.post('/orphan', db.orphan);
+app.post('/orphanfamily', db.orphanFamily);
+app.post('/generateadoptioncode', db.generateAdoptionCodes);
+app.post('/generatefamily', db.generateFamily);
+app.post('/joinfamily', db.joinFamily);
 app.post('/chore', db.setChore);
 app.post('/togglechore', db.toggleChore);
 app.post('/verifychore', db.verifyChore);
